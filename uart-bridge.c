@@ -11,11 +11,14 @@
 #include <string.h>
 #include <tusb.h>
 
+#include "pico/cyw43_arch.h"
+
 #if !defined(MIN)
 #define MIN(a, b) ((a > b) ? b : a)
 #endif /* MIN */
 
 #define LED_PIN 25
+#define LED_DELAY 10
 
 #define BUFFER_SIZE 2560
 
@@ -183,21 +186,30 @@ void usb_cdc_process(uint8_t itf)
 void core1_entry(void)
 {
 	tusb_init();
-
+	
+	int con = 0;
+	
 	while (1) {
 		int itf;
-		int con = 0;
 
 		tud_task();
 
 		for (itf = 0; itf < CFG_TUD_CDC; itf++) {
 			if (tud_cdc_n_connected(itf)) {
+				if (con == 0)
+					cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 				con = 1;
 				usb_cdc_process(itf);
 			}
+			else
+			{
+				if (con == 1)
+					cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+				con = 0;
+			}
 		}
 
-		gpio_put(LED_PIN, con);
+		
 	}
 }
 
@@ -238,6 +250,10 @@ void uart_write_bytes(uint8_t itf)
 		const uart_id_t *ui = &UART_ID[itf];
 		uint32_t count = 0;
 
+		int led_state = cyw43_arch_gpio_get(CYW43_WL_GPIO_LED_PIN);
+		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !led_state);
+		sleep_ms(LED_DELAY);
+		
 		while (uart_is_writable(ui->inst) &&
 		       count < ud->usb_pos) {
 			uart_putc_raw(ui->inst, ud->usb_buffer[count]);
@@ -249,6 +265,7 @@ void uart_write_bytes(uint8_t itf)
 			       ud->usb_pos - count);
 		ud->usb_pos -= count;
 
+		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
 		mutex_exit(&ud->usb_mtx);
 	}
 }
@@ -306,9 +323,14 @@ int main(void)
 	for (itf = 0; itf < CFG_TUD_CDC; itf++)
 		init_uart_data(itf);
 
-	gpio_init(LED_PIN);
-	gpio_set_dir(LED_PIN, GPIO_OUT);
-
+	if (cyw43_arch_init())
+		while(1);
+    		
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        sleep_ms(250);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+        sleep_ms(250);
+        
 	multicore_launch_core1(core1_entry);
 
 	while (1) {

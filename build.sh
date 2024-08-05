@@ -10,7 +10,7 @@ main() {
 		git submodule update --init --recursive
 	fi
 
-	cmake -B $BUILD_DIR -S $BASE_DIR
+	cmake -B $BUILD_DIR -S $BASE_DIR -DPICO_BOARD=pico_w
 	make -C $BUILD_DIR
 }
 

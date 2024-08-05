@@ -18,6 +18,7 @@ target_link_libraries(uart_bridge
 	hardware_flash
 	pico_multicore
 	pico_stdlib
-	tinyusb_device)
+	tinyusb_device
+	pico_cyw43_arch_none)
 
 pico_add_extra_outputs(uart_bridge)
